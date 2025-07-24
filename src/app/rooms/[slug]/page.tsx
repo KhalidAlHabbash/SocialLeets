@@ -1,8 +1,11 @@
-export default function RoomPage({ params }: { params: { slug: string } }) {
+import VoiceRoom from '@/components/VoiceRoom';
+
+export default async function RoomPage({ params }: { params: { slug: string } }) {
+    const roomSlug = await params.slug
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-3xl font-bold mb-4">Room for: {params.slug}</h1>
-      <p className="text-lg text-gray-600">(Voice room UI coming soon)</p>
+
+      <VoiceRoom slug={roomSlug} />
     </div>
   );
 }
