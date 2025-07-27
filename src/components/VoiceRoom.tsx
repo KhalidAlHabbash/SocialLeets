@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
+import { Room } from 'livekit-client';
 
 function getRandomUsername() {
   return `Solver#${Math.floor(1000 + Math.random() * 9000)}`;
@@ -12,9 +13,31 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [muted, setMuted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [roomUsers, setRoomUsers] = useState<any[]>([]);
+  const [token, setToken] = useState<string | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     setUsername(getRandomUsername());
+  }, []);
+
+  // Request microphone permission on mount
+  useEffect(() => {
+    const requestMicrophonePermission = async () => {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          console.log('Requesting microphone permission...');
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log('Microphone permission granted');
+        }
+      } catch (error) {
+        console.error('Microphone permission error:', error);
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          console.error('Microphone permission denied by user');
+        }
+      }
+    };
+
+    requestMicrophonePermission();
   }, []);
 
   useEffect(() => {
@@ -29,6 +52,79 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     };
     signIn();
   }, []);
+
+  // Fetch LiveKit token when username is available
+  useEffect(() => {
+    const fetchToken = async () => {
+      if (!username) return;
+      
+      console.log('Fetching token for:', { roomName: slug, username });
+      
+      try {
+        const response = await fetch('/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomName: slug, username })
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Response data:', data);
+          
+          if (data.token) {
+            console.log('Token received, length:', data.token.length);
+            setToken(data.token);
+          } else {
+            console.error('No token in response:', data);
+          }
+        } else {
+          const errorData = await response.json();
+          console.error('Failed to fetch token:', errorData);
+        }
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
+    };
+
+    fetchToken();
+  }, [username, slug]);
+
+  // Connect to LiveKit room when token is available
+  useEffect(() => {
+    if (!token) return;
+
+    const connectToRoom = async () => {
+      try {
+        const newRoom = new Room();
+        await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
+        setRoom(newRoom);
+        console.log('Connected to LiveKit room');
+      } catch (error) {
+        console.error('Failed to connect to LiveKit room:', error);
+      }
+    };
+
+    connectToRoom();
+
+    return () => {
+      if (room) {
+        room.disconnect();
+      }
+    };
+  }, [token]);
+
+  // Sync mute state with LiveKit
+  useEffect(() => {
+    if (!room) return;
+    
+    if (muted) {
+      room.localParticipant.setMicrophoneEnabled(false);
+    } else {
+      room.localParticipant.setMicrophoneEnabled(true);
+    }
+  }, [muted, room]);
 
   // Fetch all users in the room on mount
   useEffect(() => {
@@ -134,7 +230,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         .eq('slug', slug);
     }
   };
-
 
   return (
     <div className="flex flex-col items-center gap-8">
