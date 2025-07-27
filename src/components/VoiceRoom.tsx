@@ -105,6 +105,25 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     joinRoom();
   }, [username, userId, slug]);
 
+  useEffect(() => {
+    if (!userId || !slug) return;
+
+    const handleLeave = async () => {
+      await supabase
+        .from('room_users')
+        .delete()
+        .eq('user_id', userId)
+        .eq('slug', slug);
+    };
+
+    window.addEventListener('beforeunload', handleLeave);
+
+    return () => {
+      handleLeave();
+      window.removeEventListener('beforeunload', handleLeave);
+    };
+  }, [userId, slug]);
+
   const handleMuteToggle = async () => {
     setMuted((m) => !m);
     if (userId) {
