@@ -4,6 +4,15 @@ import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
 import { Room } from 'livekit-client';
 
+interface RoomUser {
+  id: string;
+  user_id: string;
+  username: string;
+  muted: boolean;
+  joined_at: string;
+  slug: string;
+}
+
 function getRandomUsername() {
   return `Solver#${Math.floor(1000 + Math.random() * 9000)}`;
 }
@@ -12,7 +21,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [username, setUsername] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [roomUsers, setRoomUsers] = useState<any[]>([]);
+  const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
 
@@ -113,7 +122,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         room.disconnect();
       }
     };
-  }, [token]);
+  }, [token, room]);
 
   // Sync mute state with LiveKit
   useEffect(() => {
@@ -129,7 +138,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   // Fetch all users in the room on mount
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('room_users')
         .select('*')
         .eq('slug', slug);
@@ -151,7 +160,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           filter: `slug=eq.${slug}`,
         },
         (payload) => {
-          setRoomUsers((prev) => [...prev, payload.new]);
+          setRoomUsers((prev) => [...prev, payload.new as RoomUser]);
         }
       )
         // Subscribe to changes for a users mute status to update UI
@@ -166,7 +175,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         (payload) => {
           setRoomUsers((prev) =>
             prev.map((user) =>
-              user.id === payload.new.id ? { ...user, muted: payload.new.muted } : user
+              user.id === payload.new.id ? { ...user, muted: (payload.new as RoomUser).muted } : user
             )
           );
         }
@@ -199,7 +208,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       }
     };
     joinRoom();
-  }, [username, userId, slug]);
+  }, [username, userId, slug, muted]);
 
   useEffect(() => {
     if (!userId || !slug) return;
