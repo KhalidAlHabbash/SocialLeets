@@ -174,6 +174,23 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           }
         });
         
+        // Monitor connection quality
+        newRoom.on('connectionQualityChanged', (quality, participant) => {
+          console.log('Connection quality changed:', participant.identity, quality);
+        });
+        
+        newRoom.on('disconnected', (reason) => {
+          console.log('Disconnected from room:', reason);
+        });
+        
+        newRoom.on('reconnecting', () => {
+          console.log('Reconnecting to room...');
+        });
+        
+        newRoom.on('reconnected', () => {
+          console.log('Reconnected to room');
+        });
+        
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
         setRoom(newRoom);
         console.log('Connected to LiveKit room:', newRoom.name);
@@ -186,6 +203,17 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           console.log('Local microphone enabled and published');
         } catch (error) {
           console.error('Failed to enable microphone:', error);
+          
+          // Retry after a delay
+          setTimeout(async () => {
+            try {
+              console.log('Retrying microphone publication...');
+              await newRoom.localParticipant.setMicrophoneEnabled(true);
+              console.log('Microphone publication successful on retry');
+            } catch (retryError) {
+              console.error('Microphone publication failed on retry:', retryError);
+            }
+          }, 2000);
         }
       } catch (error) {
         console.error('Failed to connect to LiveKit room:', error);
