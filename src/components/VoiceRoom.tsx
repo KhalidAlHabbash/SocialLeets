@@ -105,13 +105,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         const audioTrack = await createLocalAudioTrack();
         await newRoom.localParticipant.publishTrack(audioTrack);
 
-        // const localAudio = document.createElement('audio');
-        // localAudio.autoplay = true;
-        // localAudio.muted = true;
-        // localAudio.style.display = 'none';
-        // audioTrack.attach(localAudio);
-        // document.body.appendChild(localAudio);
-
         console.log('Connected and published local audio');
       } catch (error) {
         console.error('LiveKit connection error:', error);
