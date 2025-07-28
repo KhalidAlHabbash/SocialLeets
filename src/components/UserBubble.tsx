@@ -17,14 +17,32 @@ function getRandomPastelColor(seed: string) {
 export default function UserBubble({
   username,
   muted,
+  isLocallyMuted,
+  isCurrentUser,
   onToggleMute,
+  onToggleLocalMute,
 }: {
   username: string;
   muted: boolean;
+  isLocallyMuted: boolean;
+  isCurrentUser: boolean;
   onToggleMute: () => void;
+  onToggleLocalMute: () => void;
 }) {
   const bgColor = useMemo(() => getRandomPastelColor(username), [username]);
   const initials = getInitials(username);
+
+  // Determine the effective mute state for display
+  const isEffectivelyMuted = isCurrentUser ? muted : (muted || isLocallyMuted);
+  
+  // Determine which action to take when clicking the mute button
+  const handleMuteClick = () => {
+    if (isCurrentUser) {
+      onToggleMute(); // Global mute for current user
+    } else {
+      onToggleLocalMute(); // Local mute for other users
+    }
+  };
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -38,12 +56,16 @@ export default function UserBubble({
         </div>
 
         <button
-          onClick={onToggleMute}
+          onClick={handleMuteClick}
           className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-md hover:scale-105 transition-transform"
-          title={muted ? 'Unmute' : 'Mute'}
+          title={
+            isCurrentUser 
+              ? (muted ? 'Unmute' : 'Mute') 
+              : (isLocallyMuted ? 'Unmute locally' : 'Mute locally')
+          }
         >
-          {muted ? (
-            <HiSpeakerXMark className="text-red-400 w-4 h-4" />
+          {isEffectivelyMuted ? (
+            <HiSpeakerXMark className={`w-4 h-4 ${isLocallyMuted && !isCurrentUser ? 'text-orange-400' : 'text-red-400'}`} />
           ) : (
             <HiSpeakerWave className="text-green-400 w-4 h-4" />
           )}
@@ -53,34 +75,21 @@ export default function UserBubble({
       <span className="text-xs font-semibold text-gray-700 text-center max-w-[80px] truncate" title={username}>
         {username}
       </span>
+      
+      {/* Show mute status */}
+      <span className="text-xs flex items-center gap-1 text-gray-500">
+        {isEffectivelyMuted ? (
+          <>
+            <HiSpeakerXMark className={`${isLocallyMuted && !isCurrentUser ? 'text-orange-400' : 'text-red-400'}`} />
+            {isLocallyMuted && !isCurrentUser ? 'Locally muted' : 'Muted'}
+          </>
+        ) : (
+          <>
+            <HiSpeakerWave className="text-green-400" />
+            Speaking
+          </>
+        )}
+      </span>
     </div>
   );
-}
-// export default function UserBubble({ username, muted }: { username: string; muted: boolean }) {
-//   // Memoize color so it doesn't change on re-render
-//   const bgColor = useMemo(() => getRandomPastelColor(username), [username]);
-//   const initials = getInitials(username);
-
-//   return (
-//     <div className="flex flex-col items-center gap-2">
-//       <div
-//         className="w-16 h-16 rounded-full flex items-center justify-center shadow-md text-2xl font-bold transition-transform hover:scale-110 border-2 border-white"
-//         style={{ background: bgColor }}
-//         title={username}
-//       >
-//         {initials}
-//       </div>
-//       <span className="text-xs font-semibold text-gray-700 text-center max-w-[80px] truncate" title={username}>
-//         {username}
-//       </span>
-//       <span className="text-xs flex items-center gap-1 text-gray-500">
-//         {muted ? (
-//           <HiSpeakerXMark className="text-red-400" />
-//         ) : (
-//           <HiSpeakerWave className="text-green-400" />
-//         )}
-//         {muted ? 'Muted' : 'Speaking'}
-//       </span>
-//     </div>
-//   );
-// } 
+} 

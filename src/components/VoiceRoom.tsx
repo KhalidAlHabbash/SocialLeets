@@ -23,6 +23,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [token, setToken] = useState<string | null>(null);
+  const [locallyMutedUsers, setLocallyMutedUsers] = useState<Set<string>>(new Set());
   const roomRef = useRef<Room | null>(null);
 
   useEffect(() => {
@@ -240,13 +241,31 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     }
   };
 
+  const handleLocalMuteToggle = (targetUserId: string) => {
+    setLocallyMutedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(targetUserId)) {
+        newSet.delete(targetUserId);
+      } else {
+        newSet.add(targetUserId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
-          // <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
-          <UserBubble key={user.id || idx} username={user.username} muted={user.muted} onToggleMute={handleMuteToggle} />
-
+          <UserBubble 
+            key={user.id || idx} 
+            username={user.username} 
+            muted={user.muted} 
+            isLocallyMuted={locallyMutedUsers.has(user.user_id)}
+            isCurrentUser={user.user_id === userId}
+            onToggleMute={handleMuteToggle}
+            onToggleLocalMute={() => handleLocalMuteToggle(user.user_id)}
+          />
         ))}
       </div>
     </div>
