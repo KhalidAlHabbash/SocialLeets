@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
 import { Room, AudioPreset } from 'livekit-client';
+import { createLocalAudioTrack } from 'livekit-client';
 
 interface RoomUser {
   id: string;
@@ -199,7 +200,8 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         
         // Publish local audio track
         try {
-          await newRoom.localParticipant.setMicrophoneEnabled(true);
+            const audioTrack = await createLocalAudioTrack();
+            await newRoom.localParticipant.publishTrack(audioTrack);
           console.log('Local microphone enabled and published');
         } catch (error) {
           console.error('Failed to enable microphone:', error);
@@ -208,7 +210,8 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           setTimeout(async () => {
             try {
               console.log('Retrying microphone publication...');
-              await newRoom.localParticipant.setMicrophoneEnabled(true);
+              const audioTrack = await createLocalAudioTrack();;
+             await newRoom.localParticipant.publishTrack(audioTrack);
               console.log('Microphone publication successful on retry');
             } catch (retryError) {
               console.error('Microphone publication failed on retry:', retryError);
