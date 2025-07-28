@@ -25,6 +25,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [token, setToken] = useState<string | null>(null);
   const [locallyMutedUsers, setLocallyMutedUsers] = useState<Set<string>>(new Set());
   const roomRef = useRef<Room | null>(null);
+  const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     setUsername(getRandomUsername());
@@ -122,12 +123,21 @@ export default function VoiceRoom({ slug }: { slug: string }) {
             el.style.display = 'none';
             track.attach(el);
             document.body.appendChild(el);
+            
+            // Store reference to audio element
+            audioElementsRef.current.set(participant.identity, el);
+            
+            // Apply local mute state if this user is locally muted
+            if (locallyMutedUsers.has(participant.identity)) {
+              el.volume = 0;
+            }
           }
         });
 
         newRoom.on('trackUnsubscribed', (track, publication, participant) => {
           const el = document.getElementById(`audio-${participant.identity}`);
           if (el) el.remove();
+          audioElementsRef.current.delete(participant.identity);
         });
 
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
@@ -172,6 +182,23 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       disconnectAndCleanUp();
     };
   }, [token, userId, slug]);
+
+  // Effect to handle local mute changes for existing audio elements
+  useEffect(() => {
+    locallyMutedUsers.forEach((userId) => {
+      const audioEl = audioElementsRef.current.get(userId);
+      if (audioEl) {
+        audioEl.volume = 0;
+      }
+    });
+    
+    // Unmute users that are no longer in the locally muted set
+    audioElementsRef.current.forEach((audioEl, userId) => {
+      if (!locallyMutedUsers.has(userId)) {
+        audioEl.volume = 1;
+      }
+    });
+  }, [locallyMutedUsers]);
 
   useEffect(() => {
     if (!roomRef.current) return;
@@ -246,8 +273,18 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       const newSet = new Set(prev);
       if (newSet.has(targetUserId)) {
         newSet.delete(targetUserId);
+        // Unmute audio
+        const audioEl = audioElementsRef.current.get(targetUserId);
+        if (audioEl) {
+          audioEl.volume = 1;
+        }
       } else {
         newSet.add(targetUserId);
+        // Mute audio
+        const audioEl = audioElementsRef.current.get(targetUserId);
+        if (audioEl) {
+          audioEl.volume = 0;
+        }
       }
       return newSet;
     });
