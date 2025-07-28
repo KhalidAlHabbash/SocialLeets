@@ -113,10 +113,36 @@ export default function VoiceRoom({ slug }: { slug: string }) {
 
     connectToRoom();
 
-    return () => {
-      roomRef.current?.disconnect();
+    const disconnectAndCleanUp = async () => {
+      try {
+        roomRef.current?.disconnect();
+        if (userId && slug) {
+          await fetch('/api/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, slug }),
+          });
+        }
+      } catch (err) {
+        console.error("Disconnect cleanup error:", err);
+      }
     };
-  }, [token]);
+
+    window.addEventListener('beforeunload', () => {
+        if (userId && slug) {
+          const payload = JSON.stringify({ user_id: userId, slug });
+          navigator.sendBeacon('/api/disconnect', new Blob([payload], { type: 'application/json' }));
+          console.log('[VoiceRoom] Beacon sent on unload');
+        }
+      });
+      
+      
+
+    return () => {
+      window.removeEventListener('beforeunload', disconnectAndCleanUp);
+      disconnectAndCleanUp();
+    };
+  }, [token, userId, slug]);
 
   useEffect(() => {
     if (!roomRef.current) return;
@@ -172,19 +198,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     };
     joinRoom();
   }, [username, userId, slug, muted]);
-
-  useEffect(() => {
-    if (!userId || !slug) return;
-    const handleLeave = async () => {
-      await supabase.from('room_users').delete().eq('user_id', userId).eq('slug', slug);
-    };
-
-    window.addEventListener('beforeunload', handleLeave);
-    return () => {
-      handleLeave();
-      window.removeEventListener('beforeunload', handleLeave);
-    };
-  }, [userId, slug]);
 
   const handleMuteToggle = async () => {
     setMuted((m) => !m);
