@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
 import { Room } from 'livekit-client';
-import { RoomAudioRenderer } from '@livekit/components-react';
 
 interface RoomUser {
   id: string;
@@ -119,9 +118,29 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     const connectToRoom = async () => {
       try {
         const newRoom = new Room();
+        
+        // Add event listeners for debugging
+        newRoom.on('participantConnected', (participant) => {
+          console.log('Participant connected:', participant.identity);
+        });
+        
+        newRoom.on('participantDisconnected', (participant) => {
+          console.log('Participant disconnected:', participant.identity);
+        });
+        
+        newRoom.on('trackSubscribed', (track, publication, participant) => {
+          console.log('Track subscribed:', track.kind, 'from', participant.identity);
+        });
+        
+        newRoom.on('trackUnsubscribed', (track, publication, participant) => {
+          console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
+        });
+        
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
         setRoom(newRoom);
-        console.log('Connected to LiveKit room');
+        console.log('Connected to LiveKit room:', newRoom.name);
+        console.log('Local participant:', newRoom.localParticipant.identity);
+        console.log('Remote participants:', newRoom.numParticipants);
       } catch (error) {
         console.error('Failed to connect to LiveKit room:', error);
       }
@@ -254,7 +273,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col items-center gap-8">
-      <RoomAudioRenderer />
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
           <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
