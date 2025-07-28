@@ -203,8 +203,14 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           user.id === payload.new.id ? { ...user, muted: payload.new.muted } : user
         ));
       })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'room_users', filter: `slug=eq.${slug}`
+      }, (payload) => {
+        setRoomUsers((prev) =>
+          prev.filter((user) => user.id !== payload.old.id)
+        );
+      })
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
