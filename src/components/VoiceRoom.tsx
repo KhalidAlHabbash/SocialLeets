@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
-import { Room } from 'livekit-client';
+import { Room, AudioPreset } from 'livekit-client';
 
 interface RoomUser {
   id: string;
@@ -39,7 +39,9 @@ export default function VoiceRoom({ slug }: { slug: string }) {
             audio: {
               echoCancellation: true,
               noiseSuppression: true,
-              autoGainControl: true
+              autoGainControl: true,
+              sampleRate: 48000,
+              channelCount: 1
             } 
           });
           console.log('Microphone permission granted');
@@ -117,7 +119,10 @@ export default function VoiceRoom({ slug }: { slug: string }) {
 
     const connectToRoom = async () => {
       try {
-        const newRoom = new Room();
+        const newRoom = new Room({
+          adaptiveStream: true,
+          dynacast: true
+        });
         
         // Add event listeners for debugging
         newRoom.on('participantConnected', (participant) => {
@@ -141,6 +146,19 @@ export default function VoiceRoom({ slug }: { slug: string }) {
             
             track.attach(audioElement);
             console.log('Audio track attached for:', participant.identity);
+            
+            // Monitor audio quality
+            track.on('ended', () => {
+              console.log('Audio track ended for:', participant.identity);
+            });
+            
+            track.on('muted', () => {
+              console.log('Audio track muted for:', participant.identity);
+            });
+            
+            track.on('unmuted', () => {
+              console.log('Audio track unmuted for:', participant.identity);
+            });
           }
         });
         
