@@ -209,15 +209,11 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     <div className="flex flex-col items-center gap-8">
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
-          <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
+          // <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
+          <UserBubble key={user.id || idx} username={user.username} muted={user.muted} onToggleMute={handleMuteToggle} />
+
         ))}
       </div>
-      <button
-        className={`mt-6 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition ${muted ? 'opacity-50' : ''}`}
-        onClick={handleMuteToggle}
-      >
-        {muted ? 'Unmute' : 'Mute'}
-      </button>
     </div>
   );
 }
