@@ -19,6 +19,7 @@ export default function UserBubble({
   muted,
   isLocallyMuted,
   isCurrentUser,
+  isSpeaking,
   onToggleMute,
   onToggleLocalMute,
 }: {
@@ -26,6 +27,7 @@ export default function UserBubble({
   muted: boolean;
   isLocallyMuted: boolean;
   isCurrentUser: boolean;
+  isSpeaking: boolean;
   onToggleMute: () => void;
   onToggleLocalMute: () => void;
 }) {
@@ -44,11 +46,23 @@ export default function UserBubble({
     }
   };
 
+  // Speaking animation classes
+  const speakingClasses = isSpeaking && !isEffectivelyMuted 
+    ? 'animate-pulse scale-105 shadow-lg' 
+    : '';
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative">
+        {/* "You" label for current user */}
+        {isCurrentUser && (
+          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white rounded-xl px-3 py-0.3 shadow-md border">
+            <span className="text-xs font-bold text-gray-700">You</span>
+          </div>
+        )}
+
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center shadow-md text-2xl font-bold transition-transform hover:scale-110 border-2 border-white"
+          className={`w-16 h-16 rounded-full flex items-center justify-center shadow-md text-2xl font-bold transition-all duration-200 hover:scale-110 border-2 border-white ${speakingClasses}`}
           style={{ background: bgColor }}
           title={username}
         >
@@ -86,7 +100,7 @@ export default function UserBubble({
         ) : (
           <>
             <HiSpeakerWave className="text-green-400" />
-            Speaking
+            {isSpeaking ? 'Speaking' : 'Silent'}
           </>
         )}
       </span>

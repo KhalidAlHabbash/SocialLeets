@@ -26,6 +26,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [locallyMutedUsers, setLocallyMutedUsers] = useState<Set<string>>(new Set());
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const [speakingUsers, setSpeakingUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setUsername(getRandomUsername());
@@ -115,6 +116,11 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           console.log('Participant connected:', participant.identity);
         });
 
+        // Listen for active speakers - this handles speaking detection automatically
+        newRoom.on('activeSpeakersChanged', (speakers) => {
+          setSpeakingUsers(new Set(speakers.map(speaker => speaker.identity)));
+        });
+
         newRoom.on('trackSubscribed', (track, publication, participant) => {
           if (track.kind === 'audio') {
             const el = document.createElement('audio');
@@ -174,7 +180,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           navigator.sendBeacon('/api/disconnect', new Blob([payload], { type: 'application/json' }));
         }
       });
-      
       
 
     return () => {
@@ -300,6 +305,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
             muted={user.muted} 
             isLocallyMuted={locallyMutedUsers.has(user.username)}
             isCurrentUser={user.user_id === userId}
+            isSpeaking={speakingUsers.has(user.username)}
             onToggleMute={handleMuteToggle}
             onToggleLocalMute={() => handleLocalMuteToggle(user.username)}
           />
