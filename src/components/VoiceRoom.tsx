@@ -130,10 +130,30 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         
         newRoom.on('trackSubscribed', (track, publication, participant) => {
           console.log('Track subscribed:', track.kind, 'from', participant.identity);
+          
+          // Subscribe to audio tracks
+          if (track.kind === 'audio') {
+            const audioElement = document.createElement('audio');
+            audioElement.id = `audio-${participant.identity}`;
+            audioElement.autoplay = true;
+            audioElement.style.display = 'none';
+            document.body.appendChild(audioElement);
+            
+            track.attach(audioElement);
+            console.log('Audio track attached for:', participant.identity);
+          }
         });
         
         newRoom.on('trackUnsubscribed', (track, publication, participant) => {
           console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
+          
+          // Remove audio element when track is unsubscribed
+          if (track.kind === 'audio') {
+            const audioElement = document.getElementById(`audio-${participant.identity}`);
+            if (audioElement) {
+              audioElement.remove();
+            }
+          }
         });
         
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
@@ -141,6 +161,14 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         console.log('Connected to LiveKit room:', newRoom.name);
         console.log('Local participant:', newRoom.localParticipant.identity);
         console.log('Remote participants:', newRoom.numParticipants);
+        
+        // Publish local audio track
+        try {
+          await newRoom.localParticipant.setMicrophoneEnabled(true);
+          console.log('Local microphone enabled and published');
+        } catch (error) {
+          console.error('Failed to enable microphone:', error);
+        }
       } catch (error) {
         console.error('Failed to connect to LiveKit room:', error);
       }
