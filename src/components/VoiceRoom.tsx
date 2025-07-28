@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
@@ -24,51 +24,50 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const roomRef = useRef<Room | null>(null);
+  const [mutedUsers, setMutedUsers] = useState<Set<string>>(new Set());
+  const mutedUsersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setUsername(getRandomUsername());
   }, []);
 
   useEffect(() => {
+    mutedUsersRef.current = mutedUsers;
+  }, [mutedUsers]);
+
+  useEffect(() => {
     const requestMicrophonePermission = async () => {
       try {
-        // Step 1: Log all available audio input devices
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = devices.filter(device => device.kind === 'audioinput');
         console.log('[Audio Inputs]', audioInputs);
-  
-        // Step 2: Try to find a headset mic (optional condition, tweak as needed)
+
         const preferredMic = audioInputs.find(device =>
           device.label.toLowerCase().includes('airpods') ||
           device.label.toLowerCase().includes('bluetooth') ||
           device.label.toLowerCase().includes('hands-free') ||
           device.label.toLowerCase().includes('headset')
         );
-  
-        // Step 3: Request microphone stream using preferred mic or fallback to default
+
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             deviceId: preferredMic?.deviceId || undefined
           }
         });
-  
+
         console.log('Microphone permission granted');
-        // You now have a valid stream, attach to WebRTC/LiveKit/etc. as needed
-  
       } catch (error) {
         console.error('Microphone permission error:', error);
       }
     };
-  
+
     requestMicrophonePermission();
-    // Optional: re-run when media devices change
     navigator.mediaDevices.addEventListener('devicechange', requestMicrophonePermission);
 
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', requestMicrophonePermission);
     };
   }, []);
-  
 
   useEffect(() => {
     const signIn = async () => {
@@ -116,9 +115,15 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         newRoom.on('trackSubscribed', (track, publication, participant) => {
           if (track.kind === 'audio') {
             const el = document.createElement('audio');
-            el.id = `audio-${participant.identity}`;
+            const identity = participant.identity;
+            el.id = `audio-${identity}`;
             el.autoplay = true;
             el.style.display = 'none';
+
+            if (mutedUsersRef.current.has(identity)) {
+              el.muted = true;
+            }
+
             track.attach(el);
             document.body.appendChild(el);
           }
@@ -130,7 +135,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         });
 
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
-
         const audioTrack = await createLocalAudioTrack();
         await newRoom.localParticipant.publishTrack(audioTrack);
 
@@ -158,13 +162,11 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     };
 
     window.addEventListener('beforeunload', () => {
-        if (userId && slug) {
-          const payload = JSON.stringify({ user_id: userId, slug });
-          navigator.sendBeacon('/api/disconnect', new Blob([payload], { type: 'application/json' }));
-        }
-      });
-      
-      
+      if (userId && slug) {
+        const payload = JSON.stringify({ user_id: userId, slug });
+        navigator.sendBeacon('/api/disconnect', new Blob([payload], { type: 'application/json' }));
+      }
+    });
 
     return () => {
       window.removeEventListener('beforeunload', disconnectAndCleanUp);
@@ -199,18 +201,23 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'room_users', filter: `slug=eq.${slug}`
       }, (payload) => {
-        setRoomUsers((prev) => prev.map((user) =>
-          user.id === payload.new.id ? { ...user, muted: payload.new.muted } : user
-        ));
+        setRoomUsers((prev) =>
+          prev.map((user) =>
+            user.user_id === payload.new.user_id
+              ? { ...user, muted: payload.new.muted }
+              : user
+          )
+        );
       })
       .on('postgres_changes', {
         event: 'DELETE', schema: 'public', table: 'room_users', filter: `slug=eq.${slug}`
       }, (payload) => {
         setRoomUsers((prev) =>
-          prev.filter((user) => user.id !== payload.old.id)
+          prev.filter((user) => user.user_id !== payload.old.user_id)
         );
       })
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -231,22 +238,47 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       }
     };
     joinRoom();
-  }, [username, userId, slug, muted]);
+  }, [username, userId, slug]);
 
   const handleMuteToggle = async () => {
     setMuted((m) => !m);
     if (userId) {
-      await supabase.from('room_users').update({ muted: !muted }).eq('user_id', userId).eq('slug', slug);
+      await supabase
+        .from('room_users')
+        .update({ muted: !muted })
+        .eq('user_id', userId)
+        .eq('slug', slug);
     }
+  };
+
+  const toggleRemoteMute = (user_id: string) => {
+    setMutedUsers((prev) => {
+      const updated = new Set(prev);
+      const el = document.getElementById(`audio-${user_id}`) as HTMLAudioElement;
+
+      if (updated.has(user_id)) {
+        updated.delete(user_id);
+        if (el) el.muted = false;
+      } else {
+        updated.add(user_id);
+        if (el) el.muted = true;
+      }
+
+      return updated;
+    });
   };
 
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="flex gap-4">
-        {roomUsers.map((user, idx) => (
-          // <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
-          <UserBubble key={user.id || idx} username={user.username} muted={user.muted} onToggleMute={handleMuteToggle} />
-
+        {roomUsers.map((user) => (
+          <UserBubble
+            key={user.user_id}
+            username={user.username}
+            muted={user.muted}
+            isLocallyMuted={mutedUsers.has(user.user_id)}
+            onLocalMuteToggle={() => toggleRemoteMute(user.user_id)}
+          />
         ))}
       </div>
     </div>
