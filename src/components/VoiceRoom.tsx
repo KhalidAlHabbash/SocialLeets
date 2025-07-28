@@ -206,7 +206,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       .on('postgres_changes', {
         event: 'DELETE', schema: 'public', table: 'room_users', filter: `slug=eq.${slug}`
       }, (payload) => {
-        console.log('[DELETE payload]', payload.old);
         setRoomUsers((prev) =>
           prev.filter((user) => user.id !== payload.old.id)
         );
