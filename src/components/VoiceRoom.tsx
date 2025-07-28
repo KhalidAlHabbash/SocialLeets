@@ -17,7 +17,7 @@ function getRandomUsername() {
   return `Solver#${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-export default function VoiceRoom({ slug }: { slug: string }) {
+export default function VoiceRoom({ slug, maxParticipants }: { slug: string, maxParticipants: number   }) {
   const [username, setUsername] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -27,6 +27,9 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const [speakingUsers, setSpeakingUsers] = useState<Set<string>>(new Set());
+  const [isRoomFull, setIsRoomFull] = useState(false);
+
+  const MAX_PARTICIPANTS = maxParticipants;
 
   useEffect(() => {
     setUsername(getRandomUsername());
@@ -281,22 +284,54 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   useEffect(() => {
     const joinRoom = async () => {
       if (!username || !userId) return;
-      const { data: existing } = await supabase
+      
+      // Check current participant count before joining
+      const { data: existingUsers } = await supabase
+        .from('room_users')
+        .select('id')
+        .eq('slug', slug);
+      
+      const currentCount = existingUsers?.length || 0;
+      
+      // Check if room is full and user is not already in the room
+      const { data: userExists } = await supabase
         .from('room_users')
         .select('id')
         .eq('user_id', userId)
         .eq('slug', slug)
         .maybeSingle();
 
-      if (!existing) {
+      if (!userExists && currentCount >= MAX_PARTICIPANTS) {
+        setIsRoomFull(true);
+        return;
+      }
+
+      if (!userExists && currentCount < MAX_PARTICIPANTS) {
         await supabase.from('room_users').insert({ user_id: userId, username, muted, slug });
       }
     };
     joinRoom();
-  }, [username, userId, slug, muted]);
+  }, [username, userId, slug]);
+
+  if (isRoomFull) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="text-center bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <h2 className="text-4xl font-bold text-white mb-4">Room Full!</h2>
+          <p className="text-xl text-white/90 mb-2">
+            This room has reached the maximum capacity of {MAX_PARTICIPANTS} participants.
+          </p>
+          <p className="text-lg text-white/80">
+            Please try again later or join a different room.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-8">
+      
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
           <UserBubble 
