@@ -23,7 +23,9 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [token, setToken] = useState<string | null>(null);
+  const [locallyMutedUsers, setLocallyMutedUsers] = useState<Set<string>>(new Set());
   const roomRef = useRef<Room | null>(null);
+  const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     setUsername(getRandomUsername());
@@ -121,12 +123,21 @@ export default function VoiceRoom({ slug }: { slug: string }) {
             el.style.display = 'none';
             track.attach(el);
             document.body.appendChild(el);
+            
+            // Store reference to audio element
+            audioElementsRef.current.set(participant.identity, el);
+            
+            // Apply local mute state if this user is locally muted
+            if (locallyMutedUsers.has(participant.identity)) {
+              el.volume = 0;
+            }
           }
         });
 
         newRoom.on('trackUnsubscribed', (track, publication, participant) => {
           const el = document.getElementById(`audio-${participant.identity}`);
           if (el) el.remove();
+          audioElementsRef.current.delete(participant.identity);
         });
 
         await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
@@ -171,6 +182,52 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       disconnectAndCleanUp();
     };
   }, [token, userId, slug]);
+
+  const handleMuteToggle = async () => {
+    setMuted((m) => !m);
+    if (userId) {
+      await supabase.from('room_users').update({ muted: !muted }).eq('user_id', userId).eq('slug', slug);
+    }
+  };
+
+  const handleLocalMuteToggle = (targetUsername: string) => {
+    setLocallyMutedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(targetUsername)) {
+        newSet.delete(targetUsername);
+        // Unmute audio
+        const audioEl = audioElementsRef.current.get(targetUsername);
+        if (audioEl) {
+          audioEl.volume = 1;
+        }
+      } else {
+        newSet.add(targetUsername);
+        // Mute audio
+        const audioEl = audioElementsRef.current.get(targetUsername);
+        if (audioEl) {
+          audioEl.volume = 0;
+        }
+      }
+      return newSet;
+    });
+  };
+
+  // Effect to handle local mute changes for existing audio elements
+  useEffect(() => {
+    locallyMutedUsers.forEach((username) => {
+      const audioEl = audioElementsRef.current.get(username);
+      if (audioEl) {
+        audioEl.volume = 0;
+      }
+    });
+    
+    // Unmute users that are no longer in the locally muted set
+    audioElementsRef.current.forEach((audioEl, username) => {
+      if (!locallyMutedUsers.has(username)) {
+        audioEl.volume = 1;
+      }
+    });
+  }, [locallyMutedUsers]);
 
   useEffect(() => {
     if (!roomRef.current) return;
@@ -233,20 +290,19 @@ export default function VoiceRoom({ slug }: { slug: string }) {
     joinRoom();
   }, [username, userId, slug, muted]);
 
-  const handleMuteToggle = async () => {
-    setMuted((m) => !m);
-    if (userId) {
-      await supabase.from('room_users').update({ muted: !muted }).eq('user_id', userId).eq('slug', slug);
-    }
-  };
-
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
-          // <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
-          <UserBubble key={user.id || idx} username={user.username} muted={user.muted} onToggleMute={handleMuteToggle} />
-
+          <UserBubble 
+            key={user.id || idx} 
+            username={user.username} 
+            muted={user.muted} 
+            isLocallyMuted={locallyMutedUsers.has(user.username)}
+            isCurrentUser={user.user_id === userId}
+            onToggleMute={handleMuteToggle}
+            onToggleLocalMute={() => handleLocalMuteToggle(user.username)}
+          />
         ))}
       </div>
     </div>
