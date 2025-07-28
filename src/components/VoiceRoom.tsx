@@ -32,14 +32,43 @@ export default function VoiceRoom({ slug }: { slug: string }) {
   useEffect(() => {
     const requestMicrophonePermission = async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Step 1: Log all available audio input devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        console.log('[Audio Inputs]', audioInputs);
+  
+        // Step 2: Try to find a headset mic (optional condition, tweak as needed)
+        const preferredMic = audioInputs.find(device =>
+          device.label.toLowerCase().includes('airpods') ||
+          device.label.toLowerCase().includes('bluetooth') ||
+          device.label.toLowerCase().includes('hands-free') ||
+          device.label.toLowerCase().includes('headset')
+        );
+  
+        // Step 3: Request microphone stream using preferred mic or fallback to default
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: preferredMic?.deviceId || undefined
+          }
+        });
+  
         console.log('Microphone permission granted');
+        // You now have a valid stream, attach to WebRTC/LiveKit/etc. as needed
+  
       } catch (error) {
         console.error('Microphone permission error:', error);
       }
     };
+  
     requestMicrophonePermission();
+    // Optional: re-run when media devices change
+    navigator.mediaDevices.addEventListener('devicechange', requestMicrophonePermission);
+
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', requestMicrophonePermission);
+    };
   }, []);
+  
 
   useEffect(() => {
     const signIn = async () => {
