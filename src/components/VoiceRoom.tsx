@@ -203,6 +203,11 @@ export default function VoiceRoom({ slug }: { slug: string }) {
           user.id === payload.new.id ? { ...user, muted: payload.new.muted } : user
         ));
       })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'room_users', filter: `slug=eq.${slug}`
+      }, (payload) => {
+        setRoomUsers((prev) => [...prev, payload.new as RoomUser]);
+      })
       .subscribe();
 
     return () => {
