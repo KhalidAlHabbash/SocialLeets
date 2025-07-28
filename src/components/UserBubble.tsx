@@ -44,20 +44,20 @@ export default function UserBubble({
     }
   };
 
-  // Display name with "Me" indicator for current user
-  const displayName = isCurrentUser ? `${username} (Me) ⭐` : username;
-  
-  // Size classes based on whether it's current user
-  const bubbleSize = isCurrentUser ? 'w-20 h-20' : 'w-16 h-16';
-  const textSize = isCurrentUser ? 'text-3xl' : 'text-2xl';
-
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative">
+        {/* "You" label for current user */}
+        {isCurrentUser && (
+          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white rounded-xl px-3 py-0.3 shadow-md border">
+            <span className="text-xs font-bold text-gray-700">You</span>
+          </div>
+        )}
+
         <div
-          className={`${bubbleSize} rounded-full flex items-center justify-center shadow-md ${textSize} font-bold transition-transform hover:scale-110 border-2 border-white`}
+          className="w-16 h-16 rounded-full flex items-center justify-center shadow-md text-2xl font-bold transition-transform hover:scale-110 border-2 border-white"
           style={{ background: bgColor }}
-          title={displayName}
+          title={username}
         >
           {initials}
         </div>
@@ -79,8 +79,8 @@ export default function UserBubble({
         </button>
       </div>
 
-      <span className={`text-xs font-semibold text-gray-700 text-center ${isCurrentUser ? 'max-w-[100px]' : 'max-w-[80px]'} truncate`} title={displayName}>
-        {displayName}
+      <span className="text-xs font-semibold text-gray-700 text-center max-w-[80px] truncate" title={username}>
+        {username}
       </span>
       
       {/* Show mute status */}
