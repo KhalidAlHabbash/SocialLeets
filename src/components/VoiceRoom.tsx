@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import UserBubble from './UserBubble';
 import { Room } from 'livekit-client';
+import { RoomAudioRenderer } from '@livekit/components-react';
 
 interface RoomUser {
   id: string;
@@ -35,8 +36,19 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           console.log('Requesting microphone permission...');
-          await navigator.mediaDevices.getUserMedia({ audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            } 
+          });
           console.log('Microphone permission granted');
+          
+          // List available audio devices
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const audioDevices = devices.filter(device => device.kind === 'audioinput');
+          console.log('Available audio devices:', audioDevices);
         }
       } catch (error) {
         console.error('Microphone permission error:', error);
@@ -242,6 +254,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
 
   return (
     <div className="flex flex-col items-center gap-8">
+      <RoomAudioRenderer />
       <div className="flex gap-4">
         {roomUsers.map((user, idx) => (
           <UserBubble key={user.id || idx} username={user.username} muted={user.muted} />
