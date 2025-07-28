@@ -132,7 +132,6 @@ export default function VoiceRoom({ slug }: { slug: string }) {
         if (userId && slug) {
           const payload = JSON.stringify({ user_id: userId, slug });
           navigator.sendBeacon('/api/disconnect', new Blob([payload], { type: 'application/json' }));
-          console.log('[VoiceRoom] Beacon sent on unload');
         }
       });
       

@@ -16,9 +16,6 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
 
-    console.log('API Key exists:', !!apiKey);
-    console.log('API Secret exists:', !!apiSecret);
-
     if (!apiKey || !apiSecret) {
       return NextResponse.json(
         { error: 'LiveKit credentials not configured' },
@@ -43,8 +40,6 @@ export async function POST(request: NextRequest) {
     // Generate token
     const token = await at.toJwt();
     
-    console.log('Generated token for:', { roomName, username });
-
     return NextResponse.json({ token });
   } catch (error) {
     console.error('Error generating token:', error);
