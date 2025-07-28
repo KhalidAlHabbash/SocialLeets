@@ -186,7 +186,7 @@ export default function VoiceRoom({ slug }: { slug: string }) {
       window.removeEventListener('beforeunload', disconnectAndCleanUp);
       disconnectAndCleanUp();
     };
-  }, [token, userId, slug, locallyMutedUsers]);
+  }, [token, userId, slug]);
 
   const handleMuteToggle = async () => {
     setMuted((m) => !m);
