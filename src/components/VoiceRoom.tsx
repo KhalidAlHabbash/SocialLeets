@@ -13,6 +13,13 @@ interface RoomUser {
   slug: string;
 }
 
+interface UserPosition {
+  user: RoomUser;
+  idx: number;
+  x: number;
+  y: number;
+}
+
 function getRandomUsername() {
   return `Solver#${Math.floor(1000 + Math.random() * 9000)}`;
 }
@@ -52,14 +59,13 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
         );
   
         // Step 3: Request microphone stream using preferred mic or fallback to default
-        const stream = await navigator.mediaDevices.getUserMedia({
+        await navigator.mediaDevices.getUserMedia({
           audio: {
             deviceId: preferredMic?.deviceId || undefined
           }
         });
   
         console.log('Microphone permission granted');
-        // You now have a valid stream, attach to WebRTC/LiveKit/etc. as needed
   
       } catch (error) {
         console.error('Microphone permission error:', error);
@@ -67,7 +73,7 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
     };
   
     requestMicrophonePermission();
-    // Optional: re-run when media devices change
+    // re-run when media devices change
     navigator.mediaDevices.addEventListener('devicechange', requestMicrophonePermission);
 
     return () => {
@@ -119,7 +125,7 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
           console.log('Participant connected:', participant.identity);
         });
 
-        // Listen for active speakers - this handles speaking detection automatically
+        // Listen for active speakers, this handles speaking detection automatically
         newRoom.on('activeSpeakersChanged', (speakers) => {
           setSpeakingUsers(new Set(speakers.map(speaker => speaker.identity)));
         });
@@ -190,35 +196,6 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
       disconnectAndCleanUp();
     };
   }, [token, userId, slug]);
-
-  const handleMuteToggle = async () => {
-    setMuted((m) => !m);
-    if (userId) {
-      await supabase.from('room_users').update({ muted: !muted }).eq('user_id', userId).eq('slug', slug);
-    }
-  };
-
-  const handleLocalMuteToggle = (targetUsername: string) => {
-    setLocallyMutedUsers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(targetUsername)) {
-        newSet.delete(targetUsername);
-        // Unmute audio
-        const audioEl = audioElementsRef.current.get(targetUsername);
-        if (audioEl) {
-          audioEl.volume = 1;
-        }
-      } else {
-        newSet.add(targetUsername);
-        // Mute audio
-        const audioEl = audioElementsRef.current.get(targetUsername);
-        if (audioEl) {
-          audioEl.volume = 0;
-        }
-      }
-      return newSet;
-    });
-  };
 
   // Effect to handle local mute changes for existing audio elements
   useEffect(() => {
@@ -313,6 +290,35 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
     joinRoom();
   }, [username, userId, slug]);
 
+  const handleMuteToggle = async () => {
+    setMuted((m) => !m);
+    if (userId) {
+      await supabase.from('room_users').update({ muted: !muted }).eq('user_id', userId).eq('slug', slug);
+    }
+  };
+
+  const handleLocalMuteToggle = (targetUsername: string) => {
+    setLocallyMutedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(targetUsername)) {
+        newSet.delete(targetUsername);
+        // Unmute audio
+        const audioEl = audioElementsRef.current.get(targetUsername);
+        if (audioEl) {
+          audioEl.volume = 1;
+        }
+      } else {
+        newSet.add(targetUsername);
+        // Mute audio
+        const audioEl = audioElementsRef.current.get(targetUsername);
+        if (audioEl) {
+          audioEl.volume = 0;
+        }
+      }
+      return newSet;
+    });
+  };
+
   if (isRoomFull) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh]">
@@ -322,7 +328,7 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
             This room has reached the maximum capacity of {MAX_PARTICIPANTS} participants.
           </p>
           <p className="text-lg text-white/80">
-            Please try again later or join a different room.
+            Please try again later.
           </p>
         </div>
       </div>
@@ -338,13 +344,13 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
           const containerHeight = typeof window !== 'undefined' ? window.innerHeight - 120 : 600;
           
           // User bubble size + padding
-          const bubbleSize = 100; // 80px bubble + 20px padding
-          const cols = Math.floor((containerWidth * 0.88) / bubbleSize); // 88% to account for margins
-          const rows = Math.floor((containerHeight * 0.84) / bubbleSize); // 84% to account for margins
+          const bubbleSize = 100;
+          const cols = Math.floor((containerWidth * 0.88) / bubbleSize);
+          const rows = Math.floor((containerHeight * 0.84) / bubbleSize);
           
           // Create positions array to track occupied spots
           const occupiedPositions = new Set<string>();
-          const userPositions: { user: any; idx: number; x: number; y: number }[] = [];
+          const userPositions: UserPosition[] = [];
           
           // Hash function for consistent randomization
           const hash = (str: string, salt: number = 0) => {
@@ -381,9 +387,9 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
             
             occupiedPositions.add(posKey);
             
-            // Add slight random offset within grid cell for natural look
+            // Add slight random offset within grid cell for that natural look
             const offsetSeed = hash(userSeed, 999);
-            const offsetX = ((offsetSeed % 40) - 20) / 100; // -20% to +20% of grid cell
+            const offsetX = ((offsetSeed % 40) - 20) / 100; 
             const offsetY = (((offsetSeed * 3) % 40) - 20) / 100;
             
             // Convert grid position to percentage
@@ -393,7 +399,7 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
             userPositions.push({
               user,
               idx,
-              x: Math.max(6, Math.min(94, x)), // Clamp to safe bounds
+              x: Math.max(6, Math.min(94, x)),
               y: Math.max(8, Math.min(92, y))
             });
           });

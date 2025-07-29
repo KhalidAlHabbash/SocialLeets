@@ -14,7 +14,7 @@ export default async function RoomPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   
   // Check current participant count
-  const { data: roomUsers, error } = await supabase
+  const { data: roomUsers } = await supabase
     .from('room_users')
     .select('id')
     .eq('slug', slug);
