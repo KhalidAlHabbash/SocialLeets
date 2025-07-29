@@ -42,15 +42,15 @@ export default async function RoomPage({ params }: { params: Promise<{ slug: str
   
   return (
     <div className="min-h-screen w-full flex flex-col" style={{ background: 'linear-gradient(135deg, #f12711 0%, #f5af19 100%)' }}>
-      <header className="w-full py-6 px-4 sticky top-0 z-10 flex justify-center">
+      <header className="w-full py-4 px-4 sticky top-0 z-10 flex justify-center">
         <div className="flex items-baseline gap-2">
-          <h1 className={`text-7xl font-extrabold text-white drop-shadow-sm ${superFunky.className}`}>
+          <h1 className={`text-6xl font-extrabold text-white drop-shadow-sm ${superFunky.className}`}>
             Room for: {slug}
           </h1>
           <ParticipantCounter slug={slug} maxParticipants={MAX_PARTICIPANTS} className={superFunky.className} />
         </div>
       </header>
-      <main className="flex-1 flex flex-col items-center justify-center">
+      <main className="flex-1 px-4 pb-4">
         <VoiceRoom slug={slug} maxParticipants={MAX_PARTICIPANTS} />
       </main>
     </div>

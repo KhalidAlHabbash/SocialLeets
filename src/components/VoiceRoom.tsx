@@ -330,21 +330,95 @@ export default function VoiceRoom({ slug, maxParticipants }: { slug: string, max
   }
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      
-      <div className="flex gap-4">
-        {roomUsers.map((user, idx) => (
-          <UserBubble 
-            key={user.id || idx} 
-            username={user.username} 
-            muted={user.muted} 
-            isLocallyMuted={locallyMutedUsers.has(user.username)}
-            isCurrentUser={user.user_id === userId}
-            isSpeaking={speakingUsers.has(user.username)}
-            onToggleMute={handleMuteToggle}
-            onToggleLocalMute={() => handleLocalMuteToggle(user.username)}
-          />
-        ))}
+    <div className="w-full h-full">
+      <div className="relative w-full h-[calc(100vh-120px)]">
+        {(() => {
+          // Calculate grid dimensions based on screen size and user count
+          const containerWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+          const containerHeight = typeof window !== 'undefined' ? window.innerHeight - 120 : 600;
+          
+          // User bubble size + padding
+          const bubbleSize = 100; // 80px bubble + 20px padding
+          const cols = Math.floor((containerWidth * 0.88) / bubbleSize); // 88% to account for margins
+          const rows = Math.floor((containerHeight * 0.84) / bubbleSize); // 84% to account for margins
+          
+          // Create positions array to track occupied spots
+          const occupiedPositions = new Set<string>();
+          const userPositions: { user: any; idx: number; x: number; y: number }[] = [];
+          
+          // Hash function for consistent randomization
+          const hash = (str: string, salt: number = 0) => {
+            let hash = salt;
+            for (let i = 0; i < str.length; i++) {
+              const char = str.charCodeAt(i);
+              hash = ((hash << 5) - hash) + char;
+              hash = hash & hash;
+            }
+            return Math.abs(hash);
+          };
+          
+          // Assign positions to users
+          roomUsers.forEach((user, idx) => {
+            const userSeed = user.id || `user-${idx}`;
+            let attempts = 0;
+            let gridX, gridY, posKey;
+            
+            // Try to find an unoccupied position
+            do {
+              const hashValue = hash(userSeed, attempts);
+              gridX = hashValue % cols;
+              gridY = Math.floor(hashValue / cols) % rows;
+              posKey = `${gridX}-${gridY}`;
+              attempts++;
+            } while (occupiedPositions.has(posKey) && attempts < 100);
+            
+            // If all attempts failed, use a fallback position
+            if (attempts >= 100) {
+              gridX = idx % cols;
+              gridY = Math.floor(idx / cols) % rows;
+              posKey = `${gridX}-${gridY}`;
+            }
+            
+            occupiedPositions.add(posKey);
+            
+            // Add slight random offset within grid cell for natural look
+            const offsetSeed = hash(userSeed, 999);
+            const offsetX = ((offsetSeed % 40) - 20) / 100; // -20% to +20% of grid cell
+            const offsetY = (((offsetSeed * 3) % 40) - 20) / 100;
+            
+            // Convert grid position to percentage
+            const x = 6 + (gridX / (cols - 1)) * 88 + offsetX * (88 / cols);
+            const y = 8 + (gridY / (rows - 1)) * 84 + offsetY * (84 / rows);
+            
+            userPositions.push({
+              user,
+              idx,
+              x: Math.max(6, Math.min(94, x)), // Clamp to safe bounds
+              y: Math.max(8, Math.min(92, y))
+            });
+          });
+          
+          return userPositions.map(({ user, idx, x, y }) => (
+            <div
+              key={user.id || idx}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out"
+              style={{
+                left: `${x}%`,
+                top: `${y}%`,
+              }}
+            >
+              <UserBubble 
+                username={user.username} 
+                muted={user.muted} 
+                isLocallyMuted={locallyMutedUsers.has(user.username)}
+                isCurrentUser={user.user_id === userId}
+                isSpeaking={speakingUsers.has(user.username)}
+                onToggleMute={handleMuteToggle}
+                onToggleLocalMute={() => handleLocalMuteToggle(user.username)}
+              />
+            </div>
+          ));
+        })()}
       </div>
     </div>
   );
