@@ -1,5 +1,5 @@
 import VoiceRoom from '@/components/VoiceRoom';
-import ParticipantCounter from '@/components/ParticipantCounter';
+import ParticipantCounter from '../../../components/ParticipantCounter';
 import localFont from 'next/font/local';
 import { supabase } from '../../../../lib/supabase';
 
@@ -8,7 +8,7 @@ const superFunky = localFont({
   display: 'swap',
 });
 
-const MAX_PARTICIPANTS = 2;
+const MAX_PARTICIPANTS = 60;
 
 export default async function RoomPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
